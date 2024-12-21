@@ -61,10 +61,6 @@ public class Account {
     private String email;
     private Integer Solde;
 
-    private int numberOfCards;
-
-    private int numberOfLoans;
-    
     public Long getId() {
         return id;
     }
@@ -96,22 +92,7 @@ public class Account {
     public void setSolde(Integer solde) {
         Solde = solde;
     }
-
-	public int getNumberOfCards() {
-		return numberOfCards;
-	}
-
-	public void setNumberOfCards(int numberOfCards) {
-		this.numberOfCards = numberOfCards;
-	}
-
-	public int getNumberOfLoans() {
-		return numberOfLoans;
-	}
-
-	public void setNumberOfLoans(int numberOfLoans) {
-		this.numberOfLoans = numberOfLoans;
-	}
+    
 }
 
 ```
@@ -281,5 +262,214 @@ Pour la création du service **Card**, il faut utiliser les **Dépendances** sui
 - Spring Web
 - Spring Boot Dev Tools  
 
+#### Création du fichier *Entity*
+
+On crée d'abord un package **Entity**, pour créer la class : *Card.java*
+
+##### Entity :
+
+```Java
+package org.example.card.entity;
+
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Entity
+@Table(name = "cards")
+public class Card {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String cardNumber;
+    private String cardType;
+    private Long accountId;
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getCardNumber() {
+        return cardNumber;
+    }
+
+    public void setCardNumber(String cardNumber) {
+        this.cardNumber = cardNumber;
+    }
+
+    public String getCardType() {
+        return cardType;
+    }
+
+    public void setCardType(String cardType) {
+        this.cardType = cardType;
+    }
+
+    public Long getAccountId() {
+        return accountId;
+    }
+
+    public void setAccountId(Long accountId) {
+        this.accountId = accountId;
+    }
+}
+```
+Ensuite, on crée un package **Repository**, pour créer l'interface : *CardRepository.java*
+
+##### Repository :
+```Java
+package org.example.card.repository;
+
+import org.example.card.entity.Card;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface CardRepository extends JpaRepository<Card, Long> {
+}
+```
+
+Ensuite, on crée un package **Service**, pour créer l'interface : *CardService.java*
+
+##### Service :
+```Java
+package org.example.card.service;
+
+import org.example.card.entity.Card;
+
+import java.util.List;
+
+public interface CardService {
+    public List<Card> getAllCards();
+
+    public Card getCardById(Long id);
+
+    public Card saveCard(Card card);
+
+    public void deleteCard(Long id);
+}
+```
 
 
+Ensuite, on crée un package **ServiceImpl**, pour créer l'interface : *CardServiceImpl.java*
+
+##### ServiceImpl :
+```Java
+package org.example.card.serviceImpl;
+
+import org.example.card.entity.Card;
+import org.example.card.repository.CardRepository;
+import org.example.card.service.CardService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+public class CardServiceImpl implements CardService {
+
+    @Autowired
+    private CardRepository cardRepository;
+
+    @Override
+    public List<Card> getAllCards() {
+        return cardRepository.findAll();
+    }
+
+    @Override
+    public Card getCardById(Long id) {
+        return cardRepository.findById(id).orElseThrow(() -> new RuntimeException("Card not found"));
+    }
+
+    @Override
+    public Card saveCard(Card card) {
+        return cardRepository.save(card);
+    }
+
+    @Override
+    public void deleteCard(Long id) {
+        cardRepository.deleteById(id);
+    }
+}
+```
+
+
+Ensuite, on crée un package **Controller**, pour créer l'interface : *CardController.java*
+
+##### Controller :
+```Java
+package org.example.card.controller;
+
+import org.example.card.entity.Card;
+import org.example.card.service.CardService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/cards")
+public class CardController {
+    @Autowired
+    private CardService cardService;
+
+    @GetMapping
+    public List<Card> getAllCards() {
+        return cardService.getAllCards();
+    }
+
+    @GetMapping("/{id}")
+    public Card getCardById(@PathVariable Long id) {
+        return cardService.getCardById(id);
+    }
+
+    @PostMapping
+    public Card createCard(@RequestBody Card card) {
+        System.out.println(card);
+        return cardService.saveCard(card);
+    }
+
+    @DeleteMapping("/{id}")
+    public void deleteCard(@PathVariable Long id) {
+        cardService.deleteCard(id);
+    }
+}
+```
+Après avoir créé tous ses fichiers, je peux maintenant tester si mon service fonctionne en utilisant les routes de Card
+
+On peut tester l'url suivante :
+
+```URL
+http://localhost:8080/cards
+```
+
+Avec ce Json par exemple :
+
+```json
+{
+  "cardNumber": "1234567812345678",
+  "cardType": "Visa",
+  "accountId": 1
+}
+```
+![card-post-1.png](img-md/card-post-1.png)
+On peut voir ici que la création a bien été effectué, on peut vérifier également avec l'usage d'un getAll et/ou d'un getById.
+
+![card-getall-1.png](img-md/card-getall-1.png)
+![card-getbyid-1.png](img-md/card-getbyid-1.png)
+
+On peut également tester la suppression :
+
+![card-delete-1.png](img-md/card-delete-1.png)
+![card-getall-2.png](img-md/card-getall-2.png)
+
+Dans ce cas-ci, il n'y a pas la vérification de **Account** lors de la création d'une **Card**, cette vérification sera faite plus tard.
+
+On peut maintenant faire un commit pour la creation final du service card
