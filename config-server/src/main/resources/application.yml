@@ -1,0 +1,12 @@
+server:
+  port: 8880
+
+spring:
+  application:
+    name: config-server
+  cloud:
+    config:
+      server:
+        git:
+          uri: https://github.com/LumyaZ/config-server-exo-bank-java.git
+          default-label: master

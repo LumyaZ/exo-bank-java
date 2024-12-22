@@ -933,4 +933,115 @@ server:
   port: 8083
 ```
 
-Après cela, on peut faire un commit sur la création du Discovery-service, api-gateway et la modification des services.
+On peut maintenant tester si les services se lancent bien et si les URL des services Account / Loan / Card pointent bien sur les URL données et sur le Discovery-service.
+
+![url-service-exo-bank-1.png](img-md/url-service-exo-bank-1.png)
+
+On peut faire un commit sur la création du Discovery-service, api-gateway et la modification des services.
+
+### Création du service *config-server*
+
+Pour la création du service *config-server*, il faut dans un premier temps crée un repository git *config-server* dans lequel on va créer des fichiers *yml* pour chaque service.
+
+La première étape est de créer un repo git :
+
+Création du repo : config-server-exo-bank
+
+Ensuite, on crée des fichiers yml pour chaque service, comme ci-dessous :
+
+![config-server-service.png](img-md/config-server-service.png)
+
+Ensuite, on ajoute dans chaque fichier le code suivant :
+
+```yml
+server:
+  port: 8081
+spring:
+  application:
+    name: account
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driverClassName: org.h2.Driver
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+```
+
+Ne pas oublier de changer le **port** et le **name-application** de chaque fichier.
+
+Après avoir fait ça, on peut push le contenu et ensuite passer à l'étape de création du service **Config-server** dans le repo de base.
+
+Donc, on va créer un service **Config-server**, avec les dépendances suivantes :
+
+- Spring web
+- spring cloud config server
+- devtools
+
+#### importation de EnableConfigServer
+
+On va venir importer :
+
+```Java
+@EnableConfigServer
+```
+
+Dans le **ConfigServerApplication**, ce qui donne ceci : 
+
+```Java
+package org.example.configserver;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.config.server.EnableConfigServer;
+
+@SpringBootApplication
+@EnableConfigServer
+public class ConfigServerApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(ConfigServerApplication.class, args);
+    }
+}
+```
+
+#### changement de l'application.yml
+
+Renommez **l'application.properties** en **application.yml**
+
+Ajoutez le code suivant :
+
+```yml
+server:
+  port: 8880
+
+spring:
+  application:
+    name: config-server
+  cloud:
+    config:
+      server:
+        git:
+          uri: https://github.com/LumyaZ/config-server-exo-bank-java.git
+          default-label: master
+```
+
+Les deux parties importantes sont :
+
+- le **port**
+- l'url du git qui doit être celui du **config-server** créé juste avant.
+
+Après cela, on peut faire un commit : **Création du config-server**
+
