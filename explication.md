@@ -262,6 +262,13 @@ Pour la création du service **Card**, il faut utiliser les **Dépendances** sui
 - Spring Web
 - Spring Boot Dev Tools  
 
+**Card** :
+- private Long id;
+- private String cardNumber;
+- private String cardType;
+- private Long accountId;
+
+
 #### Création du fichier *Entity*
 
 On crée d'abord un package **Entity**, pour créer la class : *Card.java*
@@ -473,3 +480,237 @@ On peut également tester la suppression :
 Dans ce cas-ci, il n'y a pas la vérification de **Account** lors de la création d'une **Card**, cette vérification sera faite plus tard.
 
 On peut maintenant faire un commit pour la creation final du service card
+
+### Création du service *Loan*
+
+#### Création
+Pour la création du service **Loan**, il faut utiliser les **Dépendances** suivantes :
+
+- Spring Data JPA
+- H2 Database
+- Lombok
+- Spring Web
+- Spring Boot Dev Tools
+
+**Loan** :
+- private Long id;
+- private Double amount;
+- private String type;
+- private Long accountId;
+
+#### Création du fichier *Entity*
+
+On crée d'abord un package **Entity**, pour créer la class : *Loan.java*
+
+##### Entity :
+```java
+package org.example.loan.entity;
+
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Entity
+@Table(name = "loans")
+public class Loan {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private Double amount;
+    private String type;
+    private Long accountId;
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public Double getAmount() {
+        return amount;
+    }
+
+    public void setAmount(Double amount) {
+        this.amount = amount;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    public Long getAccountId() {
+        return accountId;
+    }
+
+    public void setAccountId(Long accountId) {
+        this.accountId = accountId;
+    }
+}
+```
+
+Ensuite, on crée un package **Repository**, pour créer l'interface : *LoanRepository.java*
+
+##### Repository :
+```Java
+package org.example.loan.repository;
+
+import org.example.loan.entity.Loan;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface LoanRepository extends JpaRepository<Loan, Long> {
+}
+
+```
+
+Ensuite, on crée un package **Service**, pour créer l'interface : *LoanService.java*
+
+##### Service :
+```Java
+package org.example.loan.service;
+
+import org.example.loan.entity.Loan;
+
+import java.util.List;
+
+public interface LoanService {
+
+    public List<Loan> getAllLoans();
+
+    public Loan getLoanById(Long id);
+
+    public Loan saveLoan(Loan loan);
+
+    public void deleteLoan(Long id);
+}
+```
+
+
+Ensuite, on crée un package **ServiceImpl**, pour créer l'interface : *LoanServiceImpl.java*
+
+##### ServiceImpl :
+```Java
+package org.example.loan.serviceImpl;
+
+import org.example.loan.entity.Loan;
+import org.example.loan.repository.LoanRepository;
+import org.example.loan.service.LoanService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+public class LoanServiceImpl implements LoanService {
+
+    @Autowired
+    private LoanRepository loanRepository;
+
+    @Override
+    public List<Loan> getAllLoans() {
+        return loanRepository.findAll();
+    }
+
+    @Override
+    public Loan getLoanById(Long id) {
+        return loanRepository.findById(id).orElseThrow(() -> new RuntimeException("Loan not found"));
+    }
+
+    @Override
+    public Loan saveLoan(Loan loan) {
+        return loanRepository.save(loan);
+    }
+
+    @Override
+    public void deleteLoan(Long id) {
+        loanRepository.deleteById(id);
+    }
+}
+```
+
+Ensuite, on crée un package **Controller**, pour créer l'interface : *LoanController.java*
+
+##### Controller :
+```Java
+package org.example.loan.controller;
+
+
+import org.example.loan.entity.Loan;
+import org.example.loan.service.LoanService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/loans")
+public class LoanController {
+
+    @Autowired
+    private LoanService loanService;
+
+    @GetMapping
+    public List<Loan> getAllLoans() {
+        return loanService.getAllLoans();
+    }
+
+    @GetMapping("/{id}")
+    public Loan getLoanById(@PathVariable Long id) {
+        return loanService.getLoanById(id);
+    }
+
+    @PostMapping
+    public Loan createLoan(@RequestBody Loan loan) {
+        System.out.println(loan);
+        return loanService.saveLoan(loan);
+    }
+
+    @DeleteMapping("/{id}")
+    public void deleteLoan(@PathVariable Long id) {
+        loanService.deleteLoan(id);
+    }
+}
+```
+Après avoir créé tous ses fichiers, je peux maintenant tester si mon service fonctionne en utilisant les routes de Loan
+
+
+On peut tester l'url suivante :
+
+```URL
+http://localhost:8080/loans
+```
+
+Avec ce Json par exemple :
+
+```json
+{
+  "amount": 10000.0,
+  "type": "personnel",
+  "accountId": 1
+}
+```
+
+![loan-post-1.png](img-md/loan-post-1.png)
+On peut voir ici que la création a bien été effectué, on peut vérifier également avec l'usage d'un getAll et/ou d'un getById.
+
+![loan-getall-1.png](img-md/loan-getall-1.png)
+![loan-getbyid-1.png](img-md/loan-getbyid-1.png)
+
+On peut également tester la suppression :
+
+![loan-delete-1.png](img-md/loan-delete-1.png)
+![card-getall-2.png](img-md/loan-getall-2.png)
+
+Dans ce cas-ci, il n'y a pas la vérification de **Account** lors de la création d'une **Loan**, cette vérification sera faite plus tard.
+
+On peut maintenant faire un commit pour la creation final du service loan
