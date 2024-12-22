@@ -2,6 +2,7 @@ package org.example.loan.serviceImpl;
 
 import org.example.loan.entity.Loan;
 import org.example.loan.repository.LoanRepository;
+import org.example.loan.rest.AccountServiceClient;
 import org.example.loan.service.LoanService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -13,6 +14,9 @@ public class LoanServiceImpl implements LoanService {
 
     @Autowired
     private LoanRepository loanRepository;
+
+    @Autowired
+    private AccountServiceClient accountServiceClient;
 
     @Override
     public List<Loan> getAllLoans() {
@@ -26,7 +30,11 @@ public class LoanServiceImpl implements LoanService {
 
     @Override
     public Loan saveLoan(Loan loan) {
-        return loanRepository.save(loan);
+        if (accountServiceClient.accountExists(loan.getAccountId())) {
+            return loanRepository.save(loan);
+        } else {
+            throw new IllegalArgumentException("Account does not exist");
+        }
     }
 
     @Override

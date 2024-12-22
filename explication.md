@@ -1118,6 +1118,8 @@ public class AccountServiceClient {
 
 Le service AccountServiceClient utilise RestTemplate pour envoyer une requête HTTP au service des comptes et vérifier si un compte existe en fonction de son accountId. Si le service renvoie un statut 200 OK, cela signifie que le compte existe. Sinon, la méthode retourne false en cas de 404 Not Found.
 
+##### Modification de la fonction **saveCard** dans **CardServiceImpl**
+
 Après avoir créé le service, on doit modifier la fonction de création de card pour appliquer la méthode **accountExists** du **AccountServiceClient**.
 
 Dans le fichier **CardServiceImpl** :
@@ -1129,7 +1131,7 @@ On importe **AccountServiceClient** comme ceci :
 private AccountServiceClient accountServiceClient;
 ```
 
-Puis, on modifie la fonction **saveCard** pour appliquer la méthode **accountExiste, ce qui donne le code ci-dessous :
+Puis, on modifie la fonction **saveCard** pour appliquer la méthode **accountExist**, ce qui donne le code ci-dessous :
 
 ```java
 @Override
@@ -1143,6 +1145,8 @@ public Card saveCard(Card card) {
 ```
 
 La méthode saveCard vérifie si le compte associé à une carte existe avant de sauvegarder la carte. Si le compte n'existe pas, une exception est levée pour indiquer l'erreur.
+
+##### Test de la fonction **saveCard**
 
 Maintenant, on peut tester la fonction pour voir si ça fonctionne :
 
@@ -1178,5 +1182,115 @@ Si jamais, il n'existe pas de **Account** associé, alors ça donne ceci :
 
 On peut remarquer sur l'image ci-dessus qu'avec un **accountId** égale à **2**, alors cela retourne une erreur 500 avec une **RuntimeException : Account not found.**
 
+Après avoir vérifié ça, on peut commiter : tp-1 accountExist for CardService
 
+Et maintenant, on peut appliquer le même code dans la partie **Loan**
 
+#### Pour la partie **Loan**
+
+##### Création du fichier **RestClientConfig**
+
+Dans le service **Loan**, on doit créer un package **config** dans lequel on va créer un fichier **ResClientConfig.java**
+
+```java
+package org.example.card.config;
+
+import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.cloud.client.loadbalancer.LoadBalanced;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestTemplate;
+
+@Configuration
+public class RestClientConfig {
+    @Bean
+    @LoadBalanced
+    public RestTemplate restTemplate(RestTemplateBuilder builder) {
+        return builder.build();
+    }
+}
+```
+
+Ce fichier est rigoureusement le même que celui de **Card**
+
+##### Création d'un fichier **ServiceClient** pour **Account**
+
+Dans le service **Loan**, on doit créer un package **rest** dans lequel on va créer un fichier **AccountServiceClient.java**
+```java
+package org.example.loan.rest;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestTemplate;
+
+@Service
+public class AccountServiceClient {
+private final RestTemplate restTemplate;
+private final String accountServiceUrl = "http://account/accounts/";
+
+    @Autowired
+    public AccountServiceClient(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
+    }
+    public boolean accountExists(Long accountId) {
+        try {
+            ResponseEntity<String> response = restTemplate.getForEntity(accountServiceUrl + accountId, String.class);
+            return response.getStatusCode() == HttpStatus.OK;
+        } catch (HttpClientErrorException.NotFound e) {
+            return false;
+        }
+    }
+}
+```
+
+Ce fichier est rigoureusement le même que celui de **Card**
+
+##### Modification de la fonction **saveLoan** dans **LoanServiceImpl**
+
+Après avoir créé le service, on doit modifier la fonction de création de loan pour appliquer la méthode **accountExists** du **AccountServiceClient**.
+
+Dans le fichier **LoanServiceImpl** :
+
+On importe **AccountServiceClient** comme ceci :
+
+```java
+@Autowired
+private AccountServiceClient accountServiceClient;
+```
+
+Puis, on modifie la fonction **saveLoan** pour appliquer la méthode **accountExist**, ce qui donne le code ci-dessous :
+
+```java
+@Override
+public Loan saveLoan(Loan loan) {
+    if (accountServiceClient.accountExists(loan.getAccountId())) {
+        return loanRepository.save(loan);
+    } else {
+        throw new IllegalArgumentException("Account does not exist");
+    }
+}
+```
+
+La méthode est sensiblement la même que celle de **Card**, il faut juste remplacer **Card** par **Loan**
+
+##### Test de la fonction **saveCard**
+
+Maintenant, on peut tester la fonction pour voir si ça fonctionne :
+
+Comme les services sont déjà lançés, il suffit de lancer **LoanService**, sinon relancer tous les services.
+Il faut vérifier la config dans le discovery pour voir si le **LoanService** est bien lançé.
+
+Il faut donc créer un **Account** comme précédemment et ensuite tester la création d'un **Loan**
+
+![loan-post-2.png](img-md/loan-post-2.png)
+
+Si jamais, il n'existe pas de **Account** associé, alors ça donne ceci :
+
+![loan-postError-1.png](img-md/loan-postError-1.png)
+
+L'erreur indiquée est la même que pour **Card**
+
+Après avoir vérifié ça, on peut commiter : tp-1 accountExist for LoanService
