@@ -1045,3 +1045,138 @@ Les deux parties importantes sont :
 
 Après cela, on peut faire un commit : **Création du config-server**
 
+### Résolution du premier TP :
+
+En vous basant sur le schéma et l'architecture mise en place, vous devez mettre en place le fonctionnement suivant :
+
+- Lors de la création d'une Card ou d'un Loan, on doit être en capacité à vérifier que l'Account existe avant de créer une card ou un Loan.
+- On doit être capable de récupérer un Account et notamment la liste des Cards ou des Loans appartenant à ce Account.
+- Utiliser Postman pour effectuer vos tests et les simulations.
+
+### Vérification **Account** lors de la création d'une **Card** ou d'un **Loan**
+
+#### Pour la partie **Card**
+
+##### Création du fichier **RestClientConfig**
+
+Dans le service **Card**, on doit créer un package **config** dans lequel on va créer un fichier **ResClientConfig.java**
+
+```java
+package org.example.card.config;
+
+import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.cloud.client.loadbalancer.LoadBalanced;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestTemplate;
+
+@Configuration
+public class RestClientConfig {
+    @Bean
+    @LoadBalanced
+    public RestTemplate restTemplate(RestTemplateBuilder builder) {
+        return builder.build();
+    }
+}
+```
+
+Ce code définit un bean RestTemplate configuré avec load balancing pour permettre à l'application d'effectuer des requêtes HTTP réparties entre plusieurs instances d'un service. Le RestTemplate sera utilisé pour effectuer des appels HTTP, et grâce à l'annotation @LoadBalanced, Spring Cloud s'assurera que les requêtes sont équilibrées entre les instances disponibles du service cible.
+
+##### Création d'un fichier **ServiceClient** pour **Account**
+
+Dans le service **Card**, on doit créer un package **rest** dans lequel on va créer un fichier **AccountServiceClient.java**
+
+```java
+package org.example.card.rest;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestTemplate;
+
+@Service
+public class AccountServiceClient {
+    private final RestTemplate restTemplate;
+    private final String accountServiceUrl = "http://account/accounts/";
+
+    @Autowired
+    public AccountServiceClient(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
+    }
+    public boolean accountExists(Long accountId) {
+        try {
+            ResponseEntity<String> response = restTemplate.getForEntity(accountServiceUrl + accountId, String.class);
+            return response.getStatusCode() == HttpStatus.OK;
+        } catch (HttpClientErrorException.NotFound e) {
+            return false;
+        }
+    }
+}
+```
+
+Le service AccountServiceClient utilise RestTemplate pour envoyer une requête HTTP au service des comptes et vérifier si un compte existe en fonction de son accountId. Si le service renvoie un statut 200 OK, cela signifie que le compte existe. Sinon, la méthode retourne false en cas de 404 Not Found.
+
+Après avoir créé le service, on doit modifier la fonction de création de card pour appliquer la méthode **accountExists** du **AccountServiceClient**.
+
+Dans le fichier **CardServiceImpl** :
+
+On importe **AccountServiceClient** comme ceci :
+
+```java
+@Autowired
+private AccountServiceClient accountServiceClient;
+```
+
+Puis, on modifie la fonction **saveCard** pour appliquer la méthode **accountExiste, ce qui donne le code ci-dessous :
+
+```java
+@Override
+public Card saveCard(Card card) {
+    if (accountServiceClient.accountExists(card.getAccountId())) {
+        return cardRepository.save(card);
+    } else {
+        throw new IllegalArgumentException("Account does not exist");
+    }
+}
+```
+
+La méthode saveCard vérifie si le compte associé à une carte existe avant de sauvegarder la carte. Si le compte n'existe pas, une exception est levée pour indiquer l'erreur.
+
+Maintenant, on peut tester la fonction pour voir si ça fonctionne :
+
+Pour cela, on doit lancer les différents services dans un certain ordre :
+
+- Discovery
+- Config-server
+- Api-gateway
+- Account
+- Card
+
+Pour vérifier le bon fonctionnement, il suffit de vérifier les **port** et les **config** du **Discovery**
+
+![url-service-exo-bank-2.png](img-md/url-service-exo-bank-2.png)
+
+![config-discovery-1.png](img-md/config-discovery-1.png)
+
+On doit utiliser l'url suivante pour créer un account après les modifications :
+
+```url
+http://localhost:8090/accounts
+```
+
+![account-post-2.png](img-md/account-post-2.png)
+
+Après avoir créé un **Account**, si on crée une **Card**, voilà ce que ça donne :
+
+![card-post-2.png](img-md/card-post-2.png)
+
+Si jamais, il n'existe pas de **Account** associé, alors ça donne ceci :
+
+![card-postError-1.png](img-md/card-postError-1.png)
+
+On peut remarquer sur l'image ci-dessus qu'avec un **accountId** égale à **2**, alors cela retourne une erreur 500 avec une **RuntimeException : Account not found.**
+
+
+
