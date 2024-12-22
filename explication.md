@@ -714,3 +714,223 @@ On peut également tester la suppression :
 Dans ce cas-ci, il n'y a pas la vérification de **Account** lors de la création d'une **Loan**, cette vérification sera faite plus tard.
 
 On peut maintenant faire un commit pour la creation final du service loan
+
+Après avoir créé tous les services de base, on va maintenant créer les services de **Discovery** et **Gateway**
+
+### Création *Discovery*
+
+Il faut utiliser les **Dépendances** suivantes :
+
+- Eureka server
+- Spring server
+- spring web
+- devtool
+
+Dans le DiscoveryServiceApplication
+
+- importer @EnableEurekaServer
+
+```Java
+package com.example.discovery;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.netflix.eureka.server.EnableEurekaServer;
+
+@SpringBootApplication
+@EnableEurekaServer
+public class DiscoveryApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(DiscoveryApplication.class, args);
+	}
+
+}
+```
+
+Renommez **l'application.properties** en **application.yml**
+Dans l'application.yml, ajoutez le code suivant :
+```yml
+server:
+  port:8761
+  
+eureka:
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+```
+
+On vérifie si le service se lance bien sur le port 8761
+
+### Création **api-gateway**
+
+Il faut utiliser les **Dépendances** suivantes :
+
+- Eureka discovery server
+- gateway
+- spring web
+
+Vérifier si le pom.cml contient les dépendances suivantes :
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter</artifactId>
+</dependency>
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-gateway</artifactId>
+</dependency>
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+</dependency>
+```
+
+Renommez **l'application.properties** en **application.yml**
+
+Dans l'application.yml, ajoutez le code suivant :
+
+```yml
+server:
+  port: 8090
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      routes:
+        - id: account
+          uri: lb://account
+          predicates:
+            - Path=/accounts/**
+        - id: card
+          uri: lb://card
+          predicates:
+            - Path=/cards/**
+        - id: loan
+          uri: lb://loan
+          predicates:
+            - Path=/loans/**
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    initial-instance-info-replication-interval-seconds: 10
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+    instance-id: api-gateway:${server.port}
+```
+
+Cette configuration configure un API Gateway avec Spring Cloud Gateway, 
+qui agit comme un point d'entrée pour les requêtes HTTP. 
+Il redirige les requêtes vers les services appropriés (account, card, loan) en fonction des URL. 
+L'API Gateway s'enregistre également auprès du serveur Eureka pour que d'autres services puissent le découvrir et y accéder. 
+Il récupère aussi la liste des services enregistrés dans Eureka pour rediriger les requêtes vers les services correspondants.
+
+**Maintenant, pour appliquer correctement la gateway sur les différents services (Account / Card / Loan), il faut modifier les fichiers properties de chaque service.**
+
+### Modification des services
+
+#### Modification : *Account*
+
+Renommez **l'application.properties** en **application.yml**
+
+Ajoutez le code suivant :
+
+```yml
+server:
+  port: 8081
+spring:
+  application:
+    name: account
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driverClassName: org.h2.Driver
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+```
+
+Cette configuration définit une application Spring Boot avec une base de données H2 en mémoire, une console H2 activée, et une connexion à Eureka pour la découverte de services. L'application account écoute sur le port 8081, utilise JPA avec Hibernate pour interagir avec la base de données, et se connecte à un serveur Eureka pour s'enregistrer et découvrir d'autres services.
+
+**En parallèle, on update le *pom.xlm* de Account.**
+
+On y ajoute la ligne suivante :
+```xml
+<spring-cloud.version>2024.0.0</spring-cloud.version>
+```
+
+Dans les **properties** :
+```xml
+<properties>
+    <java.version>17</java.version>
+    <spring-cloud.version>2024.0.0</spring-cloud.version>
+</properties>
+```
+
+On ajoute également les lignes suivantes dans les **dependencies** :
+Pour la dépendance eureka-client 
+```xml
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+</dependency>
+```
+
+**SANS OUBLIER :**
+
+D'ajouter les lignes suivantes après la partie **dependencies** : 
+
+```xml
+<dependencyManagement>
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-dependencies</artifactId>
+            <version>${spring-cloud.version}</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+    </dependencies>
+</dependencyManagement>
+```
+
+Après avoir appliqué ça pour **Account**, il faut faire la même chose avec **Card** et **Loan**
+
+La seule modification sera le port utilisé :
+
+Dans l' **application.yml** de **Card** on aura :
+
+```yml
+server:
+  port: 8082
+```
+
+**ET**
+
+Dans l' **application.yml** de **Loan** on aura :
+
+```yml
+server:
+  port: 8083
+```
+
+Après cela, on peut faire un commit sur la création du Discovery-service, api-gateway et la modification des services.
