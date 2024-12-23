@@ -1,5 +1,6 @@
 package org.example.account.controller;
 
+import org.example.account.dto.AccountDetailsDTO;
 import org.example.account.entity.Account;
 import org.example.account.service.AccountService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +34,11 @@ public class AccountController {
     @DeleteMapping("/{id}")
     public void deleteAccount(@PathVariable Long id) {
         accountService.deleteAccount(id);
+    }
+
+    @GetMapping("/{id}/details")
+    public AccountDetailsDTO getAccountDetails(@PathVariable Long id) {
+        return accountService.getAccountDetails(id);
     }
 
 }

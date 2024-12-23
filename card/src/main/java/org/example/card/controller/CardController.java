@@ -33,4 +33,9 @@ public class CardController {
     public void deleteCard(@PathVariable Long id) {
         cardService.deleteCard(id);
     }
+
+    @GetMapping("/accounts/{accountId}")
+    public List<Card> getCardsByAccountId(@PathVariable Long accountId) {
+        return cardService.getCardsByAccountId(accountId);
+    }
 }

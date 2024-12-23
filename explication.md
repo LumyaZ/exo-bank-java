@@ -1017,7 +1017,7 @@ public class ConfigServerApplication {
 }
 ```
 
-#### changement de l'application.yml
+#### Changement de l'application.yml
 
 Renommez **l'application.properties** en **application.yml**
 
@@ -1051,7 +1051,8 @@ En vous basant sur le schéma et l'architecture mise en place, vous devez mettre
 
 - Lors de la création d'une Card ou d'un Loan, on doit être en capacité à vérifier que l'Account existe avant de créer une card ou un Loan.
 - On doit être capable de récupérer un Account et notamment la liste des Cards ou des Loans appartenant à ce Account.
-- Utiliser Postman pour effectuer vos tests et les simulations.
+
+Utiliser Postman pour effectuer vos tests et les simulations.
 
 ### Vérification **Account** lors de la création d'une **Card** ou d'un **Loan**
 
@@ -1294,3 +1295,382 @@ Si jamais, il n'existe pas de **Account** associé, alors ça donne ceci :
 L'erreur indiquée est la même que pour **Card**
 
 Après avoir vérifié ça, on peut commiter : tp-1 accountExist for LoanService
+
+### Récupération de la liste des **Card** et des **Loan** dans un **Account**
+
+#### Pour la partie **Account**
+
+##### Création du fichier **RestClientConfig**
+
+Comme pour les parties **Card** et **Loan**, on doit créer un package **config** dans lequel on va créer un fichier **ResClientConfig.java**
+
+```java
+package org.example.account.config;
+
+import org.springframework.cloud.client.loadbalancer.LoadBalanced;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestTemplate;
+
+@Configuration
+public class RestClientConfig {
+
+    @Bean
+    @LoadBalanced
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
+    }
+}
+```
+
+La classe RestClientConfig définit un bean RestTemplate avec load balancing activé. Cela permet à l'application de réaliser des appels HTTP de manière équilibrée entre plusieurs instances de services enregistrés, typiquement dans un environnement microservices avec Spring Cloud.
+
+Ensuite, on doit créer un package **dto**, dans lequel on doit créer les fichiers **CardDTO** et **LoanDTO** pour pouvoir les utiliser dans un autre fichier **AccountDTO** qu'on créera plus tard.
+
+##### Création du fichier **CardDTO**
+```java
+package org.example.account.dto;
+
+public class CardDTO {
+
+    private Long id;
+
+
+    private String cardNumber;
+
+
+    private String cardType;
+
+
+    private Long accountId;
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getCardNumber() {
+        return cardNumber;
+    }
+
+    public void setCardNumber(String cardNumber) {
+        this.cardNumber = cardNumber;
+    }
+
+    public String getCardType() {
+        return cardType;
+    }
+
+    public void setCardType(String cardType) {
+        this.cardType = cardType;
+    }
+
+    public Long getAccountId() {
+        return accountId;
+    }
+
+    public void setAccountId(Long accountId) {
+        this.accountId = accountId;
+    }
+}
+```
+
+##### Création du fichier **LoanDTO**
+```java
+package org.example.account.dto;
+
+public class LoanDTO {
+private Long id;
+private Double amount;
+private String type;
+private Long accountId;
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public Double getAmount() {
+        return amount;
+    }
+
+    public void setAmount(Double amount) {
+        this.amount = amount;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    public Long getAccountId() {
+        return accountId;
+    }
+
+    public void setAccountId(Long accountId) {
+        this.accountId = accountId;
+    }
+}
+```
+
+##### Création du fichier **ServiceClient**
+
+On doit créer un package **Rest**, dans lequel on va créer un fichier **ServiceClient.java** qui va permettre de créer les fonctions permettant d'avoir la liste de **Card** et de **Loan** pour un **Account** 
+
+```Java
+package org.example.account.rest;
+
+import org.example.account.dto.CardDTO;
+import org.example.account.dto.LoanDTO;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.Collections;
+import java.util.List;
+
+@Service
+public class ServiceClient {
+    private final RestTemplate restTemplate;
+    private static final String CARD_SERVICE_URL = "http://card/cards/accounts/";
+    private static final String LOAN_SERVICE_URL = "http://loan/loans/accounts/";
+    
+    @Autowired
+    public ServiceClient(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
+    }
+
+    // This method retrieves a list of CardDTO objects associated with the given account ID
+    // It sends an HTTP GET request to the Card Service and returns the list of cards
+    // If there is an error (e.g., service unavailable), it returns an empty list
+    public List<CardDTO> getCardsByAccountId(Long accountId) {
+        try {
+            ResponseEntity<List<CardDTO>> response = restTemplate.exchange(
+                    CARD_SERVICE_URL + accountId,
+                    HttpMethod.GET,
+                    null,
+                    new ParameterizedTypeReference<List<CardDTO>>() {});
+            return response.getBody();
+        } catch (Exception e) {
+
+            return Collections.emptyList();
+        }
+    }
+
+    // This method retrieves a list of LoanDTO objects associated with the given account ID
+    // It sends an HTTP GET request to the Loan Service and returns the list of loans
+    // If there is an error (e.g., service unavailable), it returns an empty list
+    public List<LoanDTO> getLoansByAccountId(Long accountId) {
+        try {
+            ResponseEntity<List<LoanDTO>> response = restTemplate.exchange(
+                    LOAN_SERVICE_URL + accountId,
+                    HttpMethod.GET,
+                    null,
+                    new ParameterizedTypeReference<List<LoanDTO>>() {});
+            return response.getBody();
+        } catch (Exception e) {
+            return Collections.emptyList();
+        }
+    }
+}
+```
+
+##### Création du fichier **AccountDetailsDTO**
+
+Dans le package **dto**, on va maintenant créer un fichier **AccountDetailsDTO.java**
+
+```Java
+package org.example.account.dto;
+
+import lombok.Getter;
+import lombok.Setter;
+
+import java.util.List;
+
+@Setter
+@Getter
+public class AccountDetailsDTO {
+    // Getters and Setters
+    private Long id;
+    private String name;
+    private String email;
+    private Integer solde;
+    private List<CardDTO> cards;
+    private List<LoanDTO> loans;
+    public Long getId() {
+        return id;
+    }
+    public void setId(Long id) {
+        this.id = id;
+    }
+    public String getName() {
+        return name;
+    }
+    public void setName(String name) {
+        this.name = name;
+    }
+    public String getEmail() {
+        return email;
+    }
+    public void setEmail(String email) {
+        this.email = email;
+    }
+    public Integer getSolde() {
+        return solde;
+    }
+    public void setSolde(Integer solde) {
+        this.solde = solde;
+    }
+    public List<CardDTO> getCards() {
+        return cards;
+    }
+    public void setCards(List<CardDTO> cards) {
+        this.cards = cards;
+    }
+    public List<LoanDTO> getLoans() {
+        return loans;
+    }
+    public void setLoans(List<LoanDTO> loans) {
+        this.loans = loans;
+    }
+}
+```
+
+Ce fichier contient les attributs de **Account** avec l'ajout des listes de **Card** et **Loan** en se basant sur les fichiers **DTO**.
+
+Ensuite, on vient créer une fonction qui va permettre de récupérer les details de chaque **Account**.
+
+##### Création de la méthode **getAccountDetails**
+
+Donc, on crée d'abord la fonction dans **AccountService** : 
+
+```Java
+public AccountDetailsDTO getAccountDetails(Long accountId);
+```
+    
+Puis, on va implémenter la méthode dans **AccountServiceImpl** : 
+
+```Java
+@Override
+public AccountDetailsDTO getAccountDetails(Long accountId) {
+    Account account = accountRepository.findById(accountId)
+            .orElseThrow(() -> new RuntimeException("Account not found"));
+    AccountDetailsDTO dto = new AccountDetailsDTO();
+    dto.setId(account.getId());
+    dto.setName(account.getName());
+    dto.setEmail(account.getEmail());
+    dto.setSolde(account.getSolde());
+    dto.setCards(serviceClient.getCardsByAccountId(accountId));
+    dto.setLoans(serviceClient.getLoansByAccountId(accountId));
+    return dto;
+}
+```
+
+Pour la création de cette méthode, il ne faut pas oublier d'ajouter le **serviceClient** dans le fichier via : 
+
+```Java
+public AccountDetailsDTO getAccountDetails(Long accountId);
+```
+
+##### Création des méthodes **ByAccountId**
+
+Dans la partie **Card** : 
+
+Ajoutez la méthode **findByAccountId** dans le **CardRepository**
+```Java
+List<Card>findByAccountId(Long accountId);
+```
+
+Déclarer une méthode **getCardsByAccountId** dans le **CardService** 
+```Java
+public List<Card> getCardsByAccountId(Long accountId);
+```
+
+Implementer la méthode dans le **CardServiceImpl** avec la méthode du Repository
+```Java
+@Override
+public List<Card> getCardsByAccountId(Long accountId) {
+    return cardRepository.findByAccountId(accountId);
+}
+```
+
+Il faut appliquer la même chose dans la partie **Loan**
+
+Ajoutez la méthode **findByAccountId** dans le **LoanRepository**
+```Java
+List<Loan>findByAccountId(Long accountId);
+```
+
+Déclarer une méthode **getLoansByAccountId** dans le **LoanService**
+```Java
+public List<Loan> getLoansByAccountId(Long accountId);
+```
+
+Implementer la méthode dans le **LoanServiceImpl** avec la méthode du Repository
+```Java
+@Override
+public List<Loan> getLoansByAccountId(Long accountId) {
+    return loanRepository.findByAccountId(accountId);
+}
+```
+
+On doit maintenant appliquer un endpoint, dans le **CardController** par exemple :
+
+```Java
+@GetMapping("/accounts/{accountId}")
+public List<Card> getCardsByAccountId(@PathVariable Long accountId) {
+    return cardService.getCardsByAccountId(accountId);
+}
+```
+
+Faire la même chose dans **LoanController** : 
+
+```Java
+@GetMapping("/accounts/{accountId}")
+public List<Loan> getLoansByAccountId(@PathVariable Long accountId) {
+    return loanService.getLoansByAccountId(accountId);
+}
+```
+
+Après avoir testé les méthodes de retour **ByAccount**, on peut maintenant tester de renvoyer un **Account** avec la liste de **Card** et **Loan**
+
+##### Création de l'endPoint dans le **AccountController**
+
+Après avoir créé la méthode, il faut créer un **endPoint** dans le controller qui appelle la méthode **getAccountDetails** :
+
+```Java
+@GetMapping("/{id}/details")
+public AccountDetailsDTO getAccountDetails(@PathVariable Long id) {
+    return accountService.getAccountDetails(id);
+}
+```
+
+Il faut maintenant appliquer des tests pour vérifier si l'**endPoint** fonctionne.
+
+Après avoir créé un **Account**, une **Card** et un **Loan**, on peut tester le get suivant : 
+
+```url
+http://localhost:8090/accounts/1/details
+```
+
+![accountDetails-get-1.png](img-md/accountDetails-get-1.png)
+
+Dans l'image ci-dessus, on peut voir qu'on reçoit bien la liste de **Card** et de **Loan** lié à **l'Account.**
+
+**Avec ça on a donc terminé le TP_1.**
+
+On peut donc faire un commit : **accountDetails TP1**
+
+

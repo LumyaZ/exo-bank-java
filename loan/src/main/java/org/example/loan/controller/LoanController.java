@@ -35,4 +35,9 @@ public class LoanController {
     public void deleteLoan(@PathVariable Long id) {
         loanService.deleteLoan(id);
     }
+
+    @GetMapping("/accounts/{accountId}")
+    public List<Loan> getLoansByAccountId(@PathVariable Long accountId) {
+        return loanService.getLoansByAccountId(accountId);
+    }
 }

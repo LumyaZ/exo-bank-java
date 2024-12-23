@@ -41,4 +41,9 @@ public class LoanServiceImpl implements LoanService {
     public void deleteLoan(Long id) {
         loanRepository.deleteById(id);
     }
+
+    @Override
+    public List<Loan> getLoansByAccountId(Long accountId) {
+        return loanRepository.findByAccountId(accountId);
+    }
 }

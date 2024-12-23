@@ -1,7 +1,9 @@
 package org.example.account.serviceImpl;
 
+import org.example.account.dto.AccountDetailsDTO;
 import org.example.account.entity.Account;
 import org.example.account.repository.AccountRepository;
+import org.example.account.rest.ServiceClient;
 import org.example.account.service.AccountService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -13,6 +15,9 @@ public class AccountServiceImpl implements AccountService {
 
     @Autowired
     private AccountRepository accountRepository;
+
+    @Autowired
+    private ServiceClient serviceClient;
 
     @Override
     public List<Account> getAllAccounts() {
@@ -32,5 +37,19 @@ public class AccountServiceImpl implements AccountService {
     @Override
     public void deleteAccount(Long id) {
         accountRepository.deleteById(id);
+    }
+
+    @Override
+    public AccountDetailsDTO getAccountDetails(Long accountId) {
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new RuntimeException("Account not found"));
+        AccountDetailsDTO dto = new AccountDetailsDTO();
+        dto.setId(account.getId());
+        dto.setName(account.getName());
+        dto.setEmail(account.getEmail());
+        dto.setSolde(account.getSolde());
+        dto.setCards(serviceClient.getCardsByAccountId(accountId));
+        dto.setLoans(serviceClient.getLoansByAccountId(accountId));
+        return dto;
     }
 }

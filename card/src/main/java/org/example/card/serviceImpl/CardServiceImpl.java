@@ -41,4 +41,10 @@ public class CardServiceImpl implements CardService {
     public void deleteCard(Long id) {
         cardRepository.deleteById(id);
     }
+
+    @Override
+    public List<Card> getCardsByAccountId(Long accountId) {
+        return cardRepository.findByAccountId(accountId);
+    }
+
 }
