@@ -1798,4 +1798,190 @@ eureka:
 
 La configuration Kafka permet à l'application de se connecter à Kafka via **localhost:9092**. Les messages envoyés sont sérialisés en chaînes de caractères et les messages reçus sont désérialisés en chaînes. L'application utilise le groupe de consommateurs **my-group** et interagit avec le topic **account-events** pour gérer les événements liés aux comptes.
 
- 
+Maintenant, on va faire la partie de **Card** et de **Loan**.
+
+Dans les fichiers **yml**, il faut configurer la partie **consumer** pour la reception des messages.
+
+##### card.yml
+
+```yml
+kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: card-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    properties:
+      enable.auto.commit: true
+```
+
+Donc :  
+
+```yml
+server:
+  port: 8082
+spring:
+  application:
+    name: card
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driverClassName: org.h2.Driver
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: card-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    properties:
+      enable.auto.commit: true
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+```
+
+##### loan.yml
+
+```yml
+kafka:
+  bootstrap-servers: localhost:9092
+  consumer:
+    group-id: loan-group
+    auto-offset-reset: earliest
+    key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+  properties:
+    enable.auto.commit: true
+```
+
+Donc :
+
+```yml
+server:
+  port: 8083
+spring:
+  application:
+    name: loan
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driverClassName: org.h2.Driver
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: loan-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    properties:
+      enable.auto.commit: true
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+```
+
+Après avoir modifié les fichiers, on va créer dans notre conteneur docker kafka, des topics pour la reception des messages.
+
+Pour créer les différents topics, il faut d'abord vérifier si les conteneurs docker sont lançés.
+
+On va donc faire un **docker ps** :
+
+```bash
+  docker ps 
+```
+![docker-ps-1.png](img-md/docker-ps-1.png)
+
+On peut donc voir ic que les conteneurs sont bien lançés, maintenant, il faut se connecter au **conteneur Kafka**
+
+Pour cela, on utilise la ligne suivante :
+
+```bash
+  docker exec -it kafka-exo-bank bash
+```
+![docker-exec-kafka.png](img-md/docker-exec-kafka.png)
+
+On peut voir sur l'image du dessus qu'on est bien connecté au conteneur **Kafka**
+
+##### Creation Topic
+
+Pour créer un topic dans Kafka, on peut utiliser la ligne suivante : 
+```bash
+  kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 1 --topic account-events
+```
+![creation-topic-accounts-event.png](img-md/creation-topic-accounts-event.png)
+
+Le nom du topic doit correspondre à un des services Kafka des fichiers yml, ici celui du **account.yml** :
+
+```yml
+topic:
+      account: account-events
+```
+
+On peut maintenant vérifier la création du topic avec la ligne de commande suivante :
+
+```bash
+  kafka-topics --list --bootstrap-server localhost:9092
+```
+![verification-list-topic-kafka-1.png](img-md/verification-list-topic-kafka-1.png)
+
+Après avoir vérifié la liste, on va maintenant tester de créer un message dans le topic, pour cela, on va produire un message via le console producer.
+
+Pour entrer dans le **kafka-console-producer**, on peut utiliser la ligne de commande suivante : 
+
+```bash
+  kafka-console-producer --bootstrap-server localhost:9092 --topic account-events
+```
+![kafka-console-producer-message-1.png](img-md/kafka-console-producer-message-1.png)
+
+On peut voir qu'on est bien dans la **console-producer**, on peut maintenant appliquer un message comme celui-ci : 
+
+```bash
+  {"event":"ACCOUNT_DELETED","accountId":12345}
+```
+![kafka-console-producer-message-send-1.png](img-md/kafka-console-producer-message-send-1.png)
+
+Maintenant, on peut vérifier si le message est bien envoyé en appliquant un console-consumer pour consommer le message
+
+```bash
+  kafka-console-consumer --bootstrap-server localhost:9092 --topic account-events --from-beginning
+```
+![console-consumer-message-1.png](img-md/console-consumer-message-1.png)
+
+On peut voir sur l'image ci-dessus que le message a bien été envoyé.
+
+On peut maintenant quitter le conteneur **kafka** :
+```bash
+    exit
+```
+
+On peut faire un commit sur le repo **config-server-exo-bank-java**
+
+
