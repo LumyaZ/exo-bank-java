@@ -1673,4 +1673,129 @@ Dans l'image ci-dessus, on peut voir qu'on reçoit bien la liste de **Card** et 
 
 On peut donc faire un commit : **accountDetails TP1**
 
+### Création d'un **Docker**
 
+Maintenant, on va créer un **docker-compose.yml** pour faire la configuration du **Docker** avec l'aide d'un **Kafka**
+
+Donc, on va créer le fichier à la racine du projet et on va y ajouter le code suivant : 
+
+```yml
+version: '3.8'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.1
+    container_name: zookeeper-exo-bank
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.1
+    container_name: kafka-exo-bank
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+```
+
+Ce code est un fichier de configuration Docker Compose qui décrit l'architecture de deux services : Zookeeper et Kafka. Ces services sont utilisés principalement pour mettre en place une infrastructure de messagerie distribuée avec Apache Kafka, qui nécessite Zookeeper pour la gestion de la coordination des nœuds Kafka.
+
+Explication :
+- services
+Le bloc services définit tous les conteneurs que Docker Compose doit créer et gérer. Dans ce cas, il y a deux services : zookeeper et kafka.
+
+- Zookeeper Service :
+il est un service de coordination nécessaire pour gérer l'état et la synchronisation des nœuds Kafka. Il écoute sur le port 2181.
+
+- Kafka :
+il est un service de messagerie distribuée qui utilise Zookeeper pour gérer l'état de son cluster. Il écoute sur le port 9092 pour les clients Kafka.
+
+Kafka va permettre de créer des **producer** et des **consumers** pour l'envoi de message pour les services **Account**, **Card** et **Loan**.
+
+#### Appliquer la création du **Docker**
+
+Pour créer un conteneur **docker**, il faut d'abord bien penser à lancer docker via **docker desktop**
+
+Ensuite, dans le terminal à la racine du projet, on applique la ligne suivante :
+
+```bash
+  docker-compose up -d
+```
+
+![docker-compose-up-d-result.png](img-md/docker-compose-up-d-result.png)
+
+
+On peut maintenant faire un commit : add docker-compose
+
+#### Modification des services du config-server
+
+En parallèle à ça, il faut modifier les fichiers yml des services de **config-server** du repo **config-server-exo-bank-java** : 
+
+Par exemple, dans le fichier account.yml, on ajoute ce code : 
+
+```yml
+kafka:
+  bootstrap-servers: localhost:9092
+  producer:
+    key-serializer: org.apache.kafka.common.serialization.StringSerializer
+    value-serializer: org.apache.kafka.common.serialization.StringSerializer
+  consumer:
+    key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    group-id: my-group
+  topic:
+    account: account-events
+```
+
+Ce qui donne ce fichier au global :
+
+```yml
+server:
+  port: 8081
+spring:
+  application:
+    name: account
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driverClassName: org.h2.Driver
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      group-id: my-group
+    topic:
+      account: account-events
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+```
+
+La configuration Kafka permet à l'application de se connecter à Kafka via **localhost:9092**. Les messages envoyés sont sérialisés en chaînes de caractères et les messages reçus sont désérialisés en chaînes. L'application utilise le groupe de consommateurs **my-group** et interagit avec le topic **account-events** pour gérer les événements liés aux comptes.
+
+ 
