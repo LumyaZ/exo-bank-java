@@ -2,6 +2,7 @@ package org.example.account.serviceImpl;
 
 import org.example.account.dto.AccountDetailsDTO;
 import org.example.account.entity.Account;
+import org.example.account.kafka.AccountKafkaProducer;
 import org.example.account.repository.AccountRepository;
 import org.example.account.rest.ServiceClient;
 import org.example.account.service.AccountService;
@@ -18,6 +19,9 @@ public class AccountServiceImpl implements AccountService {
 
     @Autowired
     private ServiceClient serviceClient;
+
+    @Autowired
+    private AccountKafkaProducer accountKafkaProducer;
 
     @Override
     public List<Account> getAllAccounts() {
@@ -36,6 +40,7 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     public void deleteAccount(Long id) {
+        accountKafkaProducer.sendAccountDeleteEvent(id);
         accountRepository.deleteById(id);
     }
 

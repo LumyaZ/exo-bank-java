@@ -1984,4 +1984,225 @@ On peut maintenant quitter le conteneur **kafka** :
 
 On peut faire un commit sur le repo **config-server-exo-bank-java**
 
+### TP2 
+
+Créer un message via **Kafka** lorsque un **Account** est supprimé, créer un **Producer** pour le **Account**, et des **Consumer** pour le **Card** et le **Loan**.
+
+Car lorsque un **Account** est supprimé, il faut supprimer les **Card** et les **Loan**.
+
+Dans un premier temps, il faut ajouter dans les **pom.xml** de **Account**, **Card** et **Loan** la dépendance **Kafka** :
+
+Dans le fichier **pom.xml** du service **Account** : 
+
+```xml
+<dependency>
+    <groupId>org.springframework.kafka</groupId>
+    <artifactId>spring-kafka</artifactId>
+</dependency>
+```
+
+Et, on ajoute la même chose dans les fichiers **pom.xml** dans les services **Card** et **Loan**.
+
+Après avoir fait ça, on va créer un fichier **AccountKafkaProducer.java** dans un nouveau package **kafka**.
+
+```java
+package org.example.account.kafka;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.stereotype.Service;
+
+@Service
+public class AccountKafkaProducer {
+private static final Logger logger = LoggerFactory.getLogger(AccountKafkaProducer.class);
+private final KafkaTemplate<String, String> kafkaTemplate;
+
+    @Value("${spring.kafka.topic.account:account-events}")
+    private String topic;
+
+    public AccountKafkaProducer(KafkaTemplate<String, String> kafkaTemplate) {
+        this.kafkaTemplate = kafkaTemplate;
+    }
+    
+    public void sendAccountDeleteEvent(Long accountId){
+        String event = String.format("{\"event\":\"ACCOUNT_DELETED\",\"accountId\":\"%s\"}", accountId);
+        logger.info("Producing account deleted event: {} ",event);
+        kafkaTemplate.send(topic,event);
+    }
+}
+```
+
+**NE PAS OUBLIER D'UPDATE LE MAVEN DU PROJET SI JAMAIS LES IMPORTS NE SONT PAS TROUVEES NOTAMMENT LE KAFKA**
+Avec ça par exemple :
+```bash
+  mvn dependency:purge-local-repository clean install
+```
+
+Explication du code :
+AccountKafkaProducer est un service Spring qui utilise KafkaTemplate pour envoyer des événements Kafka. Il récupère le nom du topic depuis la configuration (account-events par défaut). La méthode sendAccountDeleteEvent génère un événement avec un accountId pour signaler la suppression d'un compte et envoie cet événement au topic Kafka configuré, tout en enregistrant un log de l'événement produit.
+
+#### Application dans la méthode **deleteAccount**
+
+Dans le fichier **AccountServiceImpl**, on vient ajouter la méthode **sendAccountDeleteEvent** qui provient de **AccountKafkaProducer**
+
+Donc dans un premier temps, on importe **AccountKafkaProducer** grâce à ça :
+
+```java
+@Autowired
+private AccountKafkaProducer accountKafkaProducer;
+```
+
+Et donc dans la méthode **deleteAccount**, on retrouve ça :
+
+```java
+public void deleteAccount(Long id) {
+    accountKafkaProducer.sendAccountDeleteEvent(id);
+    accountRepository.deleteById(id);
+}
+```
+
+### Création des consumerKafka dans les services **Card** et **Loan**
+
+#### Pour la partie **Card**
+
+On doit créer un fichier consumerKafka qui va venir récupérer le message dans le topic créer pour le Account lorsqu'un **Account** est supprimé, ensuite, on va venir ajouter la fonction qui consume la suppression de l'account dans une nouvelle méthode qui supprime la **Card** lorsqu'un **Account** est supprimé
+
+##### Création d'une méthode **deleteCardByAccountId** dans **cardService**
+
+```java
+public void deleteCardByAccountId(Long id);
+```
+
+##### Création d'une méthode **deleteCardByAccountId** dans **cardRepository**
+
+```java
+void deleteCardByAccountId(Long id);
+```
+
+##### Implémentation de la méthode **deleteCardByAccountId** dans **cardServiceImpl**
+
+```java
+@Override
+@Transactional
+public void deleteCardByAccountId(Long id) {
+    logger.info("Deleting card in service impl : " + id);
+    cardRepository.deleteCardByAccountId(id);
+}
+```
+
+Il faut ajouter le logger : 
+```java
+private static final Logger logger = LoggerFactory.getLogger(CardServiceImpl.class);
+```
+
+##### Création du fichier **CardKafkaConsumer**
+
+Créer un package **kafka** dans **Card**, et crée le fichier **CardKafkaConsumer** 
+
+On y ajoute le code suivante :
+
+```java
+public class CardKafkaConsumer {
+    private static final Logger logger = LoggerFactory.getLogger(CardKafkaConsumer.class);
+
+    @Autowired
+    private CardService cardService;
+
+    @KafkaListener(topics = "account-events", groupId = "card-group")
+    public void consumeAccountDeleteEvent(String message) {
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode event = objectMapper.readTree(message);
+            if ("ACCOUNT_DELETED".equals(event.get("event").asText())) {
+                Long id = Long.valueOf(event.get("accountId").asText());
+                logger.info("Account Deleted ok + id : " + id);
+                cardService.deleteCardByAccountId(id);
+            }
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+```
+
+Sans oublier de maven update 
+
+Maintenant, on peut faire la même chose pour **Loan**
+
+#### Pour la partie **Loan**
+
+On doit créer un fichier consumerKafka qui va venir récupérer le message dans le topic créer pour le Account lorsqu'un **Account** est supprimé, ensuite, on va venir ajouter la fonction qui consume la suppression de l'account dans une nouvelle méthode qui supprime la **Loan** lorsqu'un **Account** est supprimé.
+
+##### Création d'une méthode **deleteLoanByAccountId** dans **loanService**
+
+```java
+public void deleteLoanByAccountId(Long id);
+```
+
+##### Création d'une méthode **deleteLoanByAccountId** dans **loanRepository**
+
+```java
+void deleteLoanByAccountId(Long id);
+```
+
+##### Implémentation de la méthode **deleteLoanByAccountId** dans **loanServiceImpl**
+
+```java
+@Override
+@Transactional
+public void deleteLoanByAccountId(Long id) {
+    logger.info("Deleting loan in service impl : " + id);
+    loanRepository.deleteLoanByAccountId(id);
+}
+```
+
+Il faut ajouter le logger :
+```java
+private static final Logger logger = LoggerFactory.getLogger(LoanServiceImpl.class);
+```
+
+##### Création du fichier **LoanKafkaConsumer**
+
+Créer un package **kafka** dans **Loan**, et crée le fichier **LoanKafkaConsumer**
+
+On y ajoute le code suivante :
+
+```java
+
+@Service
+public class LoanKafkaConsumer {
+
+    @Autowired
+    private LoanService loanService;
+
+    private static final Logger logger = LoggerFactory.getLogger(LoanKafkaConsumer.class);
+
+    @KafkaListener(topics="account-events",groupId = "loan-group")
+    public void consumeAccountDeleteEvent(String message) {
+
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode event = objectMapper.readTree(message);
+
+            if("ACCOUNT_DELETED".equals(event.get("event").asText())){
+                Long id = Long.valueOf(event.get("accountId").asText());
+                logger.info("Account : " + id);
+                loanService.deleteLoanByAccountId(id);
+            }
+
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+
+```
+
+Sans oublier de maven update 
+
+Maintenant, on peut faire un commit pour le kafka pour la suppression d'un **Account** : Kafka deleteAccount 
+
+
 

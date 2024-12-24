@@ -1,9 +1,12 @@
 package org.example.card.serviceImpl;
 
+import jakarta.transaction.Transactional;
 import org.example.card.entity.Card;
 import org.example.card.repository.CardRepository;
 import org.example.card.rest.AccountServiceClient;
 import org.example.card.service.CardService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -11,6 +14,9 @@ import java.util.List;
 
 @Service
 public class CardServiceImpl implements CardService {
+
+    private static final Logger logger = LoggerFactory.getLogger(CardServiceImpl.class);
+
 
     @Autowired
     private CardRepository cardRepository;
@@ -47,4 +53,10 @@ public class CardServiceImpl implements CardService {
         return cardRepository.findByAccountId(accountId);
     }
 
+    @Override
+    @Transactional
+    public void deleteCardByAccountId(Long id) {
+        logger.info("Deleting card in service impl : " + id);
+        cardRepository.deleteCardByAccountId(id);
+    }
 }

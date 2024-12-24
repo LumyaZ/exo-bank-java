@@ -15,4 +15,6 @@ public interface CardService {
     public void deleteCard(Long id);
 
     List<Card> getCardsByAccountId(Long accountId);
+
+    public void deleteCardByAccountId(Long id);
 }
