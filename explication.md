@@ -2204,5 +2204,11 @@ Sans oublier de maven update
 
 Maintenant, on peut faire un commit pour le kafka pour la suppression d'un **Account** : Kafka deleteAccount 
 
+### Tp architecture microservice Kafka
 
+
+- Modifier votre Entity Account pour intégrer comme nouvelle information, en temps réel, le nombre total de Card et Loan pour un Account.
+- Pour cela, on utilisera un Broker Kafka pour faire en sorte que dès qu'une Card est créé pour un Account dans le microservice Card, on modifie, ensuite, le nombre total de cet Card dans le microservice Account. En utilisant le Broker Kafka.
+- Dès qu'un Loan est créé pour un Account dans le microservice Loan, on modifie, ensuite, le nombre total de cet Loan dans le microservice Account. En utilisant le Broker Kafka.
+- Le nombre total de Card et Loan peut evoluer à la hausse et à la baisse dans le microservice Account dès qu'on crée ou supprime un  Card ou Loan.
 
